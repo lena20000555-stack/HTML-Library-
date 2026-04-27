@@ -43,11 +43,9 @@
     width: 100%;
   }
 
-  /* ── SCREENS ── */
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(.4,0,.2,1); }
   .screen.hidden { transform: translateX(100%); pointer-events: none; }
 
-  /* ── HEADER ── */
   .header {
     background: var(--accent);
     color: white;
@@ -79,7 +77,6 @@
     white-space: nowrap; flex-shrink: 0;
   }
 
-  /* ── LIBRARY SCREEN ── */
   #screen-library { background: var(--bg); }
 
   .lib-topbar {
@@ -105,9 +102,7 @@
     flex-shrink: 0;
   }
 
-  .search-wrap {
-    position: relative;
-  }
+  .search-wrap { position: relative; }
 
   .search-icon {
     position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
@@ -131,7 +126,6 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  /* ── BOOK CARD ── */
   .book-card {
     background: var(--surface);
     border-radius: 14px;
@@ -163,10 +157,8 @@
   .book-name { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
   .book-date { font-size: 12px; color: var(--ink3); }
   .book-size { font-size: 11px; color: var(--ink3); margin-top: 1px; }
-
   .book-arrow { font-size: 18px; color: var(--ink3); flex-shrink: 0; }
 
-  /* Swipe delete */
   .book-card .delete-hint {
     position: absolute; right: 0; top: 0; bottom: 0;
     background: var(--red);
@@ -177,7 +169,6 @@
     transition: transform 0.25s;
   }
 
-  /* ── EMPTY STATE ── */
   .empty {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
@@ -195,7 +186,6 @@
     cursor: pointer;
   }
 
-  /* ── FAB ── */
   .fab {
     position: fixed;
     bottom: calc(var(--safe-bottom) + 24px);
@@ -213,7 +203,6 @@
 
   .fab:active { transform: scale(0.94); }
 
-  /* ── UPLOAD SHEET ── */
   .sheet-overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.4);
@@ -271,7 +260,6 @@
 
   #file-input { display: none; }
 
-  /* ── READER SCREEN ── */
   #screen-reader { background: white; z-index: 10; }
 
   #reader-frame {
@@ -279,9 +267,7 @@
     background: white;
   }
 
-  .reader-actions {
-    display: flex; gap: 8px;
-  }
+  .reader-actions { display: flex; gap: 8px; }
 
   .reader-btn {
     background: rgba(255,255,255,0.12);
@@ -290,7 +276,6 @@
     font-size: 13px; white-space: nowrap;
   }
 
-  /* ── CONTEXT MENU ── */
   .ctx-overlay {
     position: fixed; inset: 0; z-index: 300;
     background: rgba(0,0,0,0.3);
@@ -343,7 +328,10 @@
         <div class="lib-title">📚 Библиотека</div>
         <div class="lib-count" id="lib-count">Загрузи свои HTML-файлы</div>
       </div>
-      <button class="add-btn" onclick="openSheet()">+</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="add-btn" style="width:auto;padding:0 12px;font-size:15px;" onclick="openBackup()" title="Резервная копия">💾</button>
+        <button class="add-btn" onclick="openSheet()">+</button>
+      </div>
     </div>
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
@@ -394,6 +382,23 @@
   </div>
 </div>
 
+<!-- BACKUP SHEET -->
+<div class="sheet-overlay" id="backup-sheet" onclick="closeBackup(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Резервная копия</div>
+    <div class="sheet-sub">Сохраняй копию перед выходом — она хранится в папке Загрузки на телефоне</div>
+    <button class="sheet-pick-btn" onclick="exportBackup()" style="margin-bottom:10px;background:#16213e;display:flex;align-items:center;justify-content:center;gap:8px">
+      💾 Сохранить копию
+    </button>
+    <button class="sheet-pick-btn" onclick="document.getElementById('backup-input').click()" style="background:#2d4a6b;display:flex;align-items:center;justify-content:center;gap:8px">
+      📂 Восстановить из копии
+    </button>
+    <input type="file" id="backup-input" accept=".json" style="display:none" />
+    <div id="backup-status" style="text-align:center;font-size:13px;color:#6b6b80;margin-top:14px;min-height:18px"></div>
+  </div>
+</div>
+
 <!-- CONTEXT MENU -->
 <div class="ctx-overlay" id="ctx" onclick="closeCtx(event)">
   <div class="ctx-menu">
@@ -406,10 +411,6 @@
 </div>
 
 <script>
-// ══════════════════════════════════════════════
-//  STORAGE — IndexedDB (primary) + localStorage (fallback)
-//  Надёжно работает в WebView / WebIntoApp / Android
-// ══════════════════════════════════════════════
 const DB_NAME = 'html-library-db';
 const DB_VER  = 1;
 const STORE   = 'books';
@@ -450,7 +451,6 @@ async function idbPutAll(items) {
     return new Promise((resolve, reject) => {
       const tx = d.transaction(STORE, 'readwrite');
       const store = tx.objectStore(STORE);
-      // clear then write fresh
       const clearReq = store.clear();
       clearReq.onsuccess = () => {
         let pending = items.length;
@@ -478,7 +478,6 @@ async function idbDelete(id) {
   } catch { return null; }
 }
 
-// localStorage helpers (fallback)
 function lsLoad() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
 }
@@ -486,10 +485,9 @@ function lsSave(items) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(items)); } catch {}
 }
 
-// ── unified save / load ──
 async function save() {
   const ok = await idbPutAll(books);
-  lsSave(books); // always mirror to localStorage as extra backup
+  lsSave(books);
   if (ok === null) console.warn('IndexedDB unavailable, used localStorage only');
 }
 
@@ -498,17 +496,12 @@ async function load() {
   if (items && items.length > 0) {
     books = items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
   } else {
-    // fallback to localStorage
     books = lsLoad();
-    // migrate to IDB if there's data there
     if (books.length > 0) await idbPutAll(books);
   }
   renderList();
 }
 
-// ══════════════════════════════════════════════
-//  APP STATE
-// ══════════════════════════════════════════════
 let books = [];
 let searchQ = '';
 let ctxId = null;
@@ -585,7 +578,6 @@ function renderList() {
     card.addEventListener('click', () => openReader(b.id));
     card.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(b.id); });
 
-    // Long press
     let pressTimer;
     card.addEventListener('touchstart', () => { pressTimer = setTimeout(() => openCtx(b.id), 500); }, {passive:true});
     card.addEventListener('touchend', () => clearTimeout(pressTimer));
@@ -600,7 +592,6 @@ function filterBooks(q) {
   renderList();
 }
 
-// ── READER ──
 function openReader(id) {
   const book = books.find(b => b.id === id);
   if(!book) return;
@@ -627,7 +618,6 @@ function downloadCurrent() {
   a.click();
 }
 
-// ── UPLOAD SHEET ──
 function openSheet() {
   document.getElementById('sheet').classList.add('open');
 }
@@ -676,7 +666,6 @@ dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classL
 dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag'));
 dropArea.addEventListener('drop', e => { e.preventDefault(); dropArea.classList.remove('drag'); addFiles(e.dataTransfer.files); });
 
-// ── CONTEXT MENU ──
 function openCtx(id) {
   ctxId = id;
   const book = books.find(b => b.id === id);
@@ -718,8 +707,74 @@ async function ctxDelete() {
   ctxId = null;
 }
 
+// ── BACKUP ──
+function openBackup() {
+  document.getElementById('backup-status').textContent = '';
+  document.getElementById('backup-sheet').classList.add('open');
+}
+
+function closeBackup(e) {
+  if(!e || e.target === document.getElementById('backup-sheet')) {
+    document.getElementById('backup-sheet').classList.remove('open');
+  }
+}
+
+function exportBackup() {
+  if(books.length === 0) {
+    document.getElementById('backup-status').textContent = '⚠️ Библиотека пуста — нечего сохранять';
+    return;
+  }
+  const data = JSON.stringify({ version: 1, ts: Date.now(), books }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'library-backup.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('backup-status').textContent = '✓ Файл сохранён в папку Загрузки';
+}
+
+document.getElementById('backup-input').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      const imported = parsed.books || parsed;
+      if(!Array.isArray(imported)) throw new Error('bad format');
+      imported.forEach(b => {
+        if(!b.id) b.id = Math.random().toString(36).slice(2) + Date.now();
+        if(!b.ts) b.ts = Date.now();
+        const exists = books.find(x => x.name === b.name);
+        if(!exists) { books.unshift(b); }
+        else { Object.assign(exists, b); }
+      });
+      await save();
+      renderList();
+      document.getElementById('backup-status').textContent = `✓ Восстановлено ${imported.length} файлов`;
+    } catch {
+      document.getElementById('backup-status').textContent = '✗ Ошибка — повреждённый файл';
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+});
+
+async function checkAutoRestore() {
+  if(books.length === 0) {
+    setTimeout(() => {
+      if(confirm('Библиотека пуста. Восстановить из резервной копии?')) {
+        openBackup();
+        setTimeout(() => document.getElementById('backup-input').click(), 300);
+      }
+    }, 600);
+  }
+}
+
 // ── INIT ──
-load();
+load().then(checkAutoRestore);
 </script>
 </body>
 </html>
