@@ -725,13 +725,12 @@ function exportBackup() {
     return;
   }
   const data = JSON.stringify({ version: 1, ts: Date.now(), books }, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(data);
   a.download = 'library-backup.json';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
   document.getElementById('backup-status').textContent = '✓ Файл сохранён в папку Загрузки';
 }
 
